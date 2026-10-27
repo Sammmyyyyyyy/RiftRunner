@@ -46,7 +46,12 @@ public class Bird {
         return y-radius/2f;
     }
 
-
+    public float getX() {
+        return x;
+    }
+    public float getY(){
+        return y;
+    }
 }
 
 

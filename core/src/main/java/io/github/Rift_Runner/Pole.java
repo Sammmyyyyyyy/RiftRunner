@@ -10,63 +10,65 @@ public class Pole {
     public float gapY;
 
     public static final float WIDTH = 65f;
-    public static final float GAP = 200f;
+    public static final float GAP = 190f;
 
-    private static final float SCREEN_HEIGHT = 800f;
-    private static final Random random = new Random();
+    private final float worldHeight;
 
     public boolean scored = false;
 
-    public Pole(float x) {
+    private static final Random RANDOM = new Random();
+
+    public Pole(float x, float worldHeight) {
         this.x = x;
-        gapY = 250f + random.nextFloat() * 300f;
+        this.worldHeight = worldHeight;
+        this.gapY = worldHeight * 0.35f
+            + RANDOM.nextFloat() * worldHeight * 0.30f;
     }
 
     public void update(float delta, float speed) {
         x -= speed * delta;
     }
 
-    public void render(ShapeRenderer shape) {
-        shape.setColor(1f, 0.4f, 0.08f, 1f);
+    public void render(ShapeRenderer shapeRenderer) {
 
-        // Bottom pole
-        shape.rect(
-            x, 0,
-            WIDTH, gapY - GAP / 2f
+        float gapBottom = gapY - GAP / 2f;
+        float gapTop = gapY + GAP / 2f;
+
+        shapeRenderer.setColor(1f, 0.45f, 0.05f, 1f);
+
+        shapeRenderer.rect(
+            x,
+            0,
+            WIDTH,
+            gapBottom
         );
 
-        // Top pole
-        shape.rect(
-            x, gapY + GAP / 2f,
-            WIDTH, SCREEN_HEIGHT - (gapY + GAP / 2f)
-        );
-
-        // Portal-like pole edges
-        shape.setColor(1f, 0.75f, 0.2f, 1f);
-
-        shape.rect(
-            x - 5, gapY - GAP / 2f - 10,
-            WIDTH + 10, 10
-        );
-
-        shape.rect(
-            x - 5, gapY + GAP / 2f,
-            WIDTH + 10, 10
+        shapeRenderer.rect(
+            x,
+            gapTop,
+            WIDTH,
+            worldHeight - gapTop
         );
     }
 
     public boolean collides(Bird bird) {
-        boolean overlapsX =
-            bird.getRight() > x &&
-                bird.getLeft() < x + WIDTH;
 
-        boolean hitsBottom =
-            bird.getBottom() < gapY - GAP / 2f;
+        float birdLeft = bird.getX();
+        float birdRight = bird.getX() + Bird.SIZE;
+        float birdBottom = bird.getY();
+        float birdTop = bird.getY() + Bird.SIZE;
 
-        boolean hitsTop =
-            bird.getTop() > gapY + GAP / 2f;
+        float poleLeft = x;
+        float poleRight = x + WIDTH;
 
-        return overlapsX && (hitsBottom || hitsTop);
+        if (birdRight <= poleLeft || birdLeft >= poleRight) {
+            return false;
+        }
+
+        float gapBottom = gapY - GAP / 2f;
+        float gapTop = gapY + GAP / 2f;
+
+        return birdBottom < gapBottom || birdTop > gapTop;
     }
 
     public boolean isOffScreen() {
