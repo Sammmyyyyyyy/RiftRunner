@@ -22,7 +22,6 @@ public class RiftRunner extends ApplicationAdapter {
 
     @Override
     public void render() {
-        Pole pole = new Pole();
         shape.begin(ShapeRenderer.ShapeType.Filled);
         bird.draw(shape);
         shape.end();
