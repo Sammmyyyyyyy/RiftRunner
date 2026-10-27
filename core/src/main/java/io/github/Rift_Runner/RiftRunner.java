@@ -10,7 +10,7 @@ import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.utils.Array;
-
+import com.badlogic.gdx.graphics.Texture;
 public class RiftRunner extends ApplicationAdapter {
 
     private OrthographicCamera camera;
@@ -27,19 +27,22 @@ public class RiftRunner extends ApplicationAdapter {
         GAME_OVER
     }
 
+    private Texture background;
     private GameState gameState;
 
     private float poleTimer;
     private int score;
 
-    private static final float POLE_SPEED = 220f;
+    private float POLE_SPEED = 220f;
     private static final float POLE_SPAWN_INTERVAL = 1.6f;
-    private static final float GROUND_HEIGHT = 35f;
+    private static final float GROUND_HEIGHT = 0;
 
     @Override
     public void create() {
 
-        // Camera and game world
+        background = new Texture(
+            Gdx.files.internal("flappy.jpg")
+        );
         camera = new OrthographicCamera();
 
         camera.setToOrtho(
@@ -48,12 +51,10 @@ public class RiftRunner extends ApplicationAdapter {
             Gdx.graphics.getHeight()
         );
 
-        // Rendering tools
         shapeRenderer = new ShapeRenderer();
         batch = new SpriteBatch();
         font = new BitmapFont();
 
-        // Initialize the game
         restartGame();
     }
 
@@ -83,7 +84,6 @@ public class RiftRunner extends ApplicationAdapter {
     @Override
     public void render() {
 
-        // Prevent a large movement jump after a lag spike
         float delta = Math.min(
             Gdx.graphics.getDeltaTime(),
             0.033f
@@ -154,6 +154,7 @@ public class RiftRunner extends ApplicationAdapter {
         for (Pole pole : poles) {
 
             pole.update(delta, POLE_SPEED);
+            POLE_SPEED++;
 
             if (pole.collides(bird)) {
 
@@ -191,21 +192,30 @@ public class RiftRunner extends ApplicationAdapter {
 
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
 
+        // Set camera projection
         camera.update();
 
         shapeRenderer.setProjectionMatrix(camera.combined);
         batch.setProjectionMatrix(camera.combined);
 
-        // Draw game objects
+// Draw background first
+        batch.begin();
+
+        batch.draw(
+            background,
+            0,
+            0,
+            camera.viewportWidth,
+            camera.viewportHeight
+        );
+
+        batch.end();
+
+// Draw ground, poles and bird over the background
         shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
 
         // Ground
-        shapeRenderer.setColor(
-            0.25f,
-            0.20f,
-            0.35f,
-            1f
-        );
+        shapeRenderer.setColor(0f, 1f, 0f, 1f);
 
         shapeRenderer.rect(
             0,
@@ -216,7 +226,8 @@ public class RiftRunner extends ApplicationAdapter {
 
         // Draw all poles
         for (Pole pole : poles) {
-            pole.render(shapeRenderer);
+            float heightFromBottom = 40f;
+            pole.render(shapeRenderer , heightFromBottom);
         }
 
         // Draw bird
@@ -239,7 +250,6 @@ public class RiftRunner extends ApplicationAdapter {
         font.getData().setScale(1.5f);
 
         if (gameState == GameState.READY) {
-
             font.draw(
                 batch,
                 "Tap or press SPACE to start",
@@ -273,5 +283,6 @@ public class RiftRunner extends ApplicationAdapter {
         shapeRenderer.dispose();
         batch.dispose();
         font.dispose();
+        background.dispose();
     }
 }

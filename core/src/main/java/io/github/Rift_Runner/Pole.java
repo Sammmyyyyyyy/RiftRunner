@@ -29,16 +29,16 @@ public class Pole {
         x -= speed * delta;
     }
 
-    public void render(ShapeRenderer shapeRenderer) {
+    public void render(ShapeRenderer shapeRenderer , float groundHeight) {
 
         float gapBottom = gapY - GAP / 2f;
         float gapTop = gapY + GAP / 2f;
 
-        shapeRenderer.setColor(1f, 0.45f, 0.05f, 1f);
+        shapeRenderer.setColor(0f, 1f, 0f, 1f);
 
         shapeRenderer.rect(
             x,
-            0,
+            groundHeight,
             WIDTH,
             gapBottom
         );

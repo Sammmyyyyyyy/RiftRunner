@@ -32,7 +32,7 @@ public class Bird {
     }
 
     public void render(ShapeRenderer shapeRenderer) {
-        shapeRenderer.setColor(0.2f, 0.65f, 1f, 1f);
+        shapeRenderer.setColor(0f, 1f, 0f, 1f);
 
         shapeRenderer.circle(
             x + SIZE / 2f,
