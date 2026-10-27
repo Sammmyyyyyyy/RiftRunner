@@ -129,10 +129,8 @@ public class RiftRunner extends ApplicationAdapter {
         float worldWidth = camera.viewportWidth;
         float worldHeight = camera.viewportHeight;
 
-        // Update bird physics
         bird.update(delta);
 
-        // Check ground and ceiling collision
         if (bird.getY() <= GROUND_HEIGHT
             || bird.getY() + Bird.SIZE >= worldHeight) {
 
@@ -140,7 +138,6 @@ public class RiftRunner extends ApplicationAdapter {
             return;
         }
 
-        // Count time until the next pole spawns
         poleTimer += delta;
 
         if (poleTimer >= POLE_SPAWN_INTERVAL) {
@@ -150,28 +147,22 @@ public class RiftRunner extends ApplicationAdapter {
             poleTimer = 0f;
         }
 
-        // Move poles, detect collisions and update score
         for (Pole pole : poles) {
 
             pole.update(delta, POLE_SPEED);
-            POLE_SPEED++;
 
             if (pole.collides(bird)) {
-
                 gameState = GameState.GAME_OVER;
                 return;
             }
 
-            // Give one point when the bird passes a pole
             if (!pole.scored
                 && pole.x + Pole.WIDTH < bird.getX()) {
-
                 pole.scored = true;
                 score++;
             }
         }
 
-        // Remove poles that have left the screen
         for (int i = poles.size - 1; i >= 0; i--) {
 
             if (poles.get(i).isOffScreen()) {
