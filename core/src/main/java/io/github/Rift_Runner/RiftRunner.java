@@ -37,6 +37,7 @@ public class RiftRunner extends ApplicationAdapter {
 
     private float poleTimer;
     private int score;
+    private float currentPoleSpacing = 300f;
 
     private float BASE_POLE_SPEED = 220f;
     private float MAX_POLE_SPEED = 350f;
@@ -52,7 +53,20 @@ public class RiftRunner extends ApplicationAdapter {
     private static final float BASE_GAP = 190f;
     private static final float MIN_GAP = 145f;
 
+
+    //for Time Stone
+
     private static final float groundHeight = 40f;
+
+    private TimeStone timeStone;
+
+    private float timeStoneSpawnTimer = 0f;
+    private float slowMotionTimer = 0f;
+
+    private static final float TIME_STONE_SPAWN_INTERVAL = 10f;
+    private static final float SLOW_MOTION_DURATION = 4f;
+    private static final float SLOW_MOTION_MULTIPLIER = 0.5f;
+
     @Override
     public void create() {
 
@@ -84,6 +98,12 @@ public class RiftRunner extends ApplicationAdapter {
 
     private void restartGame() {
 
+        //for timeStone
+
+        timeStone = null;
+        timeStoneSpawnTimer = 0f;
+        slowMotionTimer = 0f;
+
         float worldWidth = camera.viewportWidth;
         float worldHeight = camera.viewportHeight;
 
@@ -95,6 +115,10 @@ public class RiftRunner extends ApplicationAdapter {
 
         // Create the pole list
         poles = new Array<>();
+
+        poleTimer = 0f;
+        score = 0;
+        updateDifficulty();
 
         // First pole starts outside the right edge
         poles.add(new Pole(
@@ -171,22 +195,67 @@ public class RiftRunner extends ApplicationAdapter {
             return;
         }
 
-        poleTimer += delta;
 
-        if (poleTimer >= currentSpawnInterval) {
-            poles.add(new Pole(
-                worldWidth,
+        // Time Stone spawn timer
+        timeStoneSpawnTimer += delta;
+
+        if (timeStone == null
+            && timeStoneSpawnTimer >= TIME_STONE_SPAWN_INTERVAL) {
+
+            timeStone = new TimeStone(
+                getTimeStoneSpawnX(worldWidth),
                 worldHeight,
-                currentGap,
-                positionVariation,
                 groundHeight
-            ));
+            );
 
-            poleTimer -= currentSpawnInterval;
+            timeStoneSpawnTimer = 0f;
+        }
+
+        // Slow-motion countdown
+        if (slowMotionTimer > 0f) {
+            slowMotionTimer -= delta;
+
+            if (slowMotionTimer < 0f) {
+                slowMotionTimer = 0f;
+            }
+        }
+
+        // Actual speed of poles this frame
+        float actualPoleSpeed = poleSpeed;
+
+        // Move and collect Time Stone
+        if (timeStone != null) {
+            timeStone.update(delta, poleSpeed);
+
+            if (timeStone.collides(bird)) {
+                slowMotionTimer = SLOW_MOTION_DURATION;
+                timeStone = null;
+            } else if (timeStone.isOffScreen()) {
+                timeStone = null;
+            }
+        }
+
+        if (slowMotionTimer > 0f) {
+            actualPoleSpeed *= SLOW_MOTION_MULTIPLIER;
+        }
+
+
+        if (poles.size > 0) {
+            Pole lastPole = poles.peek();
+
+            if (lastPole.x <= worldWidth - currentPoleSpacing) {
+                poles.add(new Pole(
+                    lastPole.x + currentPoleSpacing,
+                    worldHeight,
+                    currentGap,
+                    positionVariation,
+                    groundHeight
+                ));
+            }
         }
         for (Pole pole : poles) {
 
-            pole.update(delta, poleSpeed);
+            pole.update(delta, actualPoleSpeed);
 
             if (pole.collides(bird ,groundHeight)) {
                 gameState = GameState.GAME_OVER;
@@ -218,6 +287,18 @@ public class RiftRunner extends ApplicationAdapter {
 
         batch.begin();
 
+        if (slowMotionTimer > 0f) {
+            font.getData().setScale(1.5f);
+
+            font.draw(
+                batch,
+                "TIME SLOWED: " +
+                    String.format("%.1f", slowMotionTimer) + "s",
+                camera.viewportWidth * 0.55f,
+                camera.viewportHeight - 30f
+            );
+        }
+
         batch.draw(
             background,
             0,
@@ -242,6 +323,10 @@ public class RiftRunner extends ApplicationAdapter {
         for (Pole pole : poles) {
 
             pole.render(shapeRenderer , groundHeight);
+        }
+
+        if (timeStone != null) {
+            timeStone.render(shapeRenderer);
         }
 
         bird.render(shapeRenderer);
@@ -319,33 +404,52 @@ public class RiftRunner extends ApplicationAdapter {
             poleSpeed = 220f;
             currentGap = 190f;
             positionVariation = 80f;
-            currentSpawnInterval = 1.6f;
+            currentPoleSpacing = 300f;
 
         } else if (score <= 10) {
             poleSpeed = 260f;
             currentGap = 175f;
             positionVariation = 100f;
-            currentSpawnInterval = 1.45f;
+            currentPoleSpacing = 300f;
 
         } else if (score <= 15) {
             poleSpeed = 300f;
             currentGap = 160f;
             positionVariation = 120f;
-            currentSpawnInterval = 1.30f;
+            currentPoleSpacing = 290f;
 
         } else if (score <= 20) {
             poleSpeed = 330f;
             currentGap = 145f;
             positionVariation = 150f;
-            currentSpawnInterval = 1.15f;
+            currentPoleSpacing = 280f;
 
         } else {
-            poleSpeed = 380f;
-            currentGap = 130f;
+            poleSpeed = 350f;
+            currentGap = 140f;
             positionVariation = 180f;
-            currentSpawnInterval = 1f;
+            currentPoleSpacing = 270f;
         }
     }
+
+    //helper function for getting X of timeStone
+
+    private float getTimeStoneSpawnX(float worldWidth) {
+        if (poles.size > 0) {
+            Pole rightmostPole = poles.peek();
+
+            for (Pole pole : poles) {
+                if (pole.x > rightmostPole.x) {
+                    rightmostPole = pole;
+                }
+            }
+
+            return rightmostPole.x + currentPoleSpacing / 2f;
+        }
+
+        return worldWidth + currentPoleSpacing / 2f;
+    }
+
     @Override
     public void dispose() {
 
