@@ -1,0 +1,36 @@
+
+name: Build Rift Runner for Windows
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Build Windows game
+        run: .\gradlew.bat lwjgl3:packageWinX64
+
+      - name: Upload game to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: lwjgl3/build/construo/dist/*.zip
+          generate_release_notes: true
