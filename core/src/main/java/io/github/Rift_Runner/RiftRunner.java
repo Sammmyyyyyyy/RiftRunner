@@ -10,7 +10,9 @@ import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.graphics.Texture;
+import com.badlogic.gdx.graphics.Texture.TextureFilter;
 import com.badlogic.gdx.Preferences;
+import com.badlogic.gdx.graphics.g2d.TextureRegion;
 
 import java.util.Random;
 
@@ -37,11 +39,23 @@ public class RiftRunner extends ApplicationAdapter {
     private enum GameState {
         READY,
         PLAYING,
+        DYING,
         GAME_OVER
     }
 
     private Texture background;
+    private Texture aliveTexture;
+    private Texture deadTexture;
+    private Texture timeStoneTexture;
+    private TextureRegion bottomPoleRegion;
+    private TextureRegion topPoleRegion;
+    private SpriteMask birdCollisionMask;
+    private SpriteMask bottomPoleCollisionMask;
+    private SpriteMask topPoleCollisionMask;
+    private TimeStoneScreenEffect timeStoneScreenEffect;
     private GameState gameState;
+    private float deathTimer;
+    private static final float DEATH_DISPLAY_DURATION = 0.8f;
 
     private float poleTimer;
     private int score;
@@ -64,12 +78,13 @@ public class RiftRunner extends ApplicationAdapter {
 
     //for Time Stone
 
-    private static final float groundHeight = 40f;
+    private static final float groundHeight = 0;
 
     private TimeStone timeStone;
 
     private float timeStoneSpawnTimer = 0f;
     private float slowMotionTimer = 0f;
+    private float slowMotionFactor = 1f;
 
     private static final float TIME_STONE_SPAWN_INTERVAL = 10f;
     private static final float SLOW_MOTION_DURATION = 4f;
@@ -86,9 +101,24 @@ public class RiftRunner extends ApplicationAdapter {
 
         highScore = preferences.getInteger("highScore", 0);
 
-        background = new Texture(
-            Gdx.files.internal("flappy.jpg")
-        );
+        background = new Texture(Gdx.files.internal("background2.png"), true);
+        aliveTexture = new Texture(Gdx.files.internal("drStrangeAlive.png"), true);
+        deadTexture = new Texture(Gdx.files.internal("drStrangeDead.png"), true);
+        timeStoneTexture = new Texture(Gdx.files.internal("timeStone.png"), true);
+        Texture bottomPoleTexture = new Texture(Gdx.files.internal("bottomPole.png"), true);
+        Texture topPoleTexture = new Texture(Gdx.files.internal("topPole.png"), true);
+        bottomPoleRegion = new TextureRegion(bottomPoleTexture, 337, 50, 179, 1230);
+        topPoleRegion = new TextureRegion(topPoleTexture, 337, 0, 179, 1230);
+        birdCollisionMask = new SpriteMask("drStrangeAlive.png");
+        bottomPoleCollisionMask = new SpriteMask("bottomPole.png");
+        topPoleCollisionMask = new SpriteMask("topPole.png");
+        timeStoneScreenEffect = new TimeStoneScreenEffect();
+        background.setFilter(TextureFilter.MipMapLinearLinear, TextureFilter.Linear);
+        aliveTexture.setFilter(TextureFilter.MipMapLinearLinear, TextureFilter.Linear);
+        deadTexture.setFilter(TextureFilter.MipMapLinearLinear, TextureFilter.Linear);
+        timeStoneTexture.setFilter(TextureFilter.MipMapLinearLinear, TextureFilter.Linear);
+        bottomPoleTexture.setFilter(TextureFilter.MipMapLinearLinear, TextureFilter.Linear);
+        topPoleTexture.setFilter(TextureFilter.MipMapLinearLinear, TextureFilter.Linear);
         camera = new OrthographicCamera();
 
         camera.setToOrtho(
@@ -106,11 +136,15 @@ public class RiftRunner extends ApplicationAdapter {
 
     private void restartGame() {
 
+        sparks.clear();
+
         //for timeStone
 
         timeStone = null;
         timeStoneSpawnTimer = 0f;
         slowMotionTimer = 0f;
+        slowMotionFactor = 1f;
+        timeStoneScreenEffect.reset();
 
         float worldWidth = camera.viewportWidth;
         float worldHeight = camera.viewportHeight;
@@ -118,7 +152,9 @@ public class RiftRunner extends ApplicationAdapter {
         // Create the bird
         bird = new Bird(
             worldWidth * 0.22f,
-            worldHeight * 0.5f
+            worldHeight * 0.5f,
+            aliveTexture,
+            deadTexture
         );
 
         // Create the pole list
@@ -151,13 +187,21 @@ public class RiftRunner extends ApplicationAdapter {
             Gdx.graphics.getDeltaTime(),
             0.033f
         );
-
         handleInput();
 
         // Update gameplay only while playing
         if (gameState == GameState.PLAYING) {
             updateGame(delta);
+        } else if (gameState == GameState.DYING) {
+            deathTimer -= delta;
+            if (deathTimer <= 0f) {
+                gameState = GameState.GAME_OVER;
+            }
         }
+
+        boolean powerUpActive = gameState == GameState.PLAYING
+            && slowMotionTimer > 0f;
+        timeStoneScreenEffect.update(delta, powerUpActive);
 
         renderGame();
     }
@@ -210,10 +254,9 @@ public class RiftRunner extends ApplicationAdapter {
         bird.update(delta);
 
         if (bird.getY() <= groundHeight
-            || bird.getY() + Bird.SIZE >= worldHeight) {
+            || bird.getY() + Bird.HEIGHT >= worldHeight) {
 
-            gameState = GameState.GAME_OVER;
-            saveHighScore();
+            beginDeath();
             return;
         }
 
@@ -227,7 +270,8 @@ public class RiftRunner extends ApplicationAdapter {
             timeStone = new TimeStone(
                 getTimeStoneSpawnX(worldWidth),
                 worldHeight,
-                groundHeight
+                groundHeight,
+                timeStoneTexture
             );
 
             timeStoneSpawnTimer = 0f;
@@ -242,9 +286,6 @@ public class RiftRunner extends ApplicationAdapter {
             }
         }
 
-        // Actual speed of poles this frame
-        float actualPoleSpeed = poleSpeed;
-
         // Move and collect Time Stone
         if (timeStone != null) {
             timeStone.update(delta, poleSpeed);
@@ -257,9 +298,18 @@ public class RiftRunner extends ApplicationAdapter {
             }
         }
 
-        if (slowMotionTimer > 0f) {
-            actualPoleSpeed *= SLOW_MOTION_MULTIPLIER;
+        // Ease into and out of slow motion instead of changing speed instantly.
+        float targetSlowMotionFactor = slowMotionTimer > 0f
+            ? SLOW_MOTION_MULTIPLIER : 1f;
+        float factorStep = 1.5f * delta;
+        if (slowMotionFactor < targetSlowMotionFactor) {
+            slowMotionFactor = Math.min(targetSlowMotionFactor,
+                slowMotionFactor + factorStep);
+        } else {
+            slowMotionFactor = Math.max(targetSlowMotionFactor,
+                slowMotionFactor - factorStep);
         }
+        float actualPoleSpeed = poleSpeed * slowMotionFactor;
 
 
         if (poles.size > 0) {
@@ -279,9 +329,10 @@ public class RiftRunner extends ApplicationAdapter {
 
             pole.update(delta, actualPoleSpeed);
 
-            if (pole.collides(bird ,groundHeight)) {
-                gameState = GameState.GAME_OVER;
-                saveHighScore();
+            if (pole.collides(bird, groundHeight,
+                birdCollisionMask, bottomPoleCollisionMask, topPoleCollisionMask,
+                bottomPoleRegion, topPoleRegion)) {
+                beginDeath();
                 return;
             }
 
@@ -309,18 +360,6 @@ public class RiftRunner extends ApplicationAdapter {
 
         batch.begin();
 
-        if (slowMotionTimer > 0f) {
-            font.getData().setScale(1.5f);
-
-            font.draw(
-                batch,
-                "TIME SLOWED: " +
-                    String.format("%.1f", slowMotionTimer) + "s",
-                camera.viewportWidth * 0.55f,
-                camera.viewportHeight - 30f
-            );
-        }
-
         batch.draw(
             background,
             0,
@@ -340,7 +379,6 @@ public class RiftRunner extends ApplicationAdapter {
         }
 
         shapeRenderer.setColor(0f, 1f, 0f, 1f);
-
         shapeRenderer.rect(
             0,
             0,
@@ -348,20 +386,34 @@ public class RiftRunner extends ApplicationAdapter {
             groundHeight
         );
 
-        for (Pole pole : poles) {
-
-            pole.render(shapeRenderer , groundHeight);
-        }
-
-        if (timeStone != null) {
-            timeStone.render(shapeRenderer);
-        }
-
-        bird.render(shapeRenderer);
-
         shapeRenderer.end();
 
         batch.begin();
+
+        for (Pole pole : poles) {
+            pole.render(batch, bottomPoleRegion, topPoleRegion, groundHeight);
+        }
+
+        if (timeStone != null) {
+            timeStone.render(batch);
+        }
+
+        bird.render(batch);
+
+        batch.end();
+
+        batch.begin();
+        timeStoneScreenEffect.render(batch, camera.viewportWidth, camera.viewportHeight);
+
+        if (slowMotionTimer > 0f) {
+            font.getData().setScale(1.5f);
+            font.draw(
+                batch,
+                "TIME SLOWED: " + String.format("%.1f", slowMotionTimer) + "s",
+                camera.viewportWidth * 0.55f,
+                camera.viewportHeight - 30f
+            );
+        }
 
         font.getData().setScale(1.5f);
 
@@ -427,6 +479,13 @@ public class RiftRunner extends ApplicationAdapter {
         }
     }
 
+    private void beginDeath() {
+        bird.setDead(true);
+        gameState = GameState.DYING;
+        deathTimer = DEATH_DISPLAY_DURATION;
+        saveHighScore();
+    }
+
     private void updateDifficulty() {
         if (score <= 5) {
             poleSpeed = 220f;
@@ -481,8 +540,8 @@ public class RiftRunner extends ApplicationAdapter {
     // generates sparks at the time of thrust
 
     private void spawnThrustSparks() {
-        float x = bird.getX() + Bird.SIZE * 0.30f;
-        float y = bird.getY() + Bird.SIZE * 0.30f;
+        float x = bird.getX() + Bird.WIDTH * 0.20f;
+        float y = bird.getY() + Bird.HEIGHT * 0.08f;
 
         for (int i = 0; i < 8; i++) {
 
@@ -506,5 +565,11 @@ public class RiftRunner extends ApplicationAdapter {
         batch.dispose();
         font.dispose();
         background.dispose();
+        aliveTexture.dispose();
+        deadTexture.dispose();
+        timeStoneTexture.dispose();
+        bottomPoleRegion.getTexture().dispose();
+        topPoleRegion.getTexture().dispose();
+        timeStoneScreenEffect.dispose();
     }
 }

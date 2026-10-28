@@ -29,8 +29,17 @@ public class Spark {
     public void render(ShapeRenderer renderer) {
         float alpha = Math.max(0f, life / maxLife);
 
-        renderer.setColor(1f, 0.55f, 0.08f, alpha);
-        renderer.circle(x, y, size * alpha);
+        renderer.setColor(1f, 0.31f, 0.07f, alpha * 0.75f);
+        renderer.rectLine(
+            x,
+            y,
+            x - vx * 0.035f,
+            y - vy * 0.035f,
+            Math.max(1f, size * alpha * 0.65f)
+        );
+
+        renderer.setColor(1f, 0.68f, 0.24f, alpha);
+        renderer.circle(x, y, size * alpha * 0.55f);
     }
 
     public boolean isDead() {

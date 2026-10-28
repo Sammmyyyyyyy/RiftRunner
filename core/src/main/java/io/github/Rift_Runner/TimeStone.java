@@ -1,7 +1,8 @@
 
 package io.github.Rift_Runner;
 
-import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
+import com.badlogic.gdx.graphics.Texture;
+import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import java.util.Random;
 
 public class TimeStone {
@@ -9,12 +10,15 @@ public class TimeStone {
     private float x;
     private final float y;
 
-    public static final float RADIUS = 16f;
+    public static final float WIDTH = 42f;
+    public static final float HEIGHT = 42f;
+    private final Texture texture;
 
     private static final Random RANDOM = new Random();
 
-    public TimeStone(float x, float worldHeight, float groundHeight) {
+    public TimeStone(float x, float worldHeight, float groundHeight, Texture texture) {
         this.x = x;
+        this.texture = texture;
 
         float minY = groundHeight + 80f;
         float maxY = worldHeight - 80f;
@@ -26,34 +30,23 @@ public class TimeStone {
         x -= speed * delta;
     }
 
-    public void render(ShapeRenderer shapeRenderer) {
-        // Outer glow
-        shapeRenderer.setColor(1f, 0.7f, 0f, 1f);
-        shapeRenderer.circle(x, y, RADIUS + 5f);
-
-        // Time Stone
-        shapeRenderer.setColor(0.2f, 1f, 0.3f, 1f);
-        shapeRenderer.circle(x, y, RADIUS);
+    public void render(SpriteBatch batch) {
+        batch.draw(texture, x - WIDTH / 2f, y - HEIGHT / 2f, WIDTH, HEIGHT);
     }
 
     public boolean collides(Bird bird) {
-        float closestX = Math.max(
-            bird.getX(),
-            Math.min(x, bird.getX() + Bird.SIZE)
-        );
+        float stoneLeft = x - WIDTH / 2f;
+        float stoneRight = x + WIDTH / 2f;
+        float stoneBottom = y - HEIGHT / 2f;
+        float stoneTop = y + HEIGHT / 2f;
 
-        float closestY = Math.max(
-            bird.getY(),
-            Math.min(y, bird.getY() + Bird.SIZE)
-        );
-
-        float dx = x - closestX;
-        float dy = y - closestY;
-
-        return dx * dx + dy * dy <= RADIUS * RADIUS;
+        return bird.getX() < stoneRight
+            && bird.getX() + Bird.WIDTH > stoneLeft
+            && bird.getY() < stoneTop
+            && bird.getY() + Bird.HEIGHT > stoneBottom;
     }
 
     public boolean isOffScreen() {
-        return x + RADIUS < 0;
+        return x + WIDTH / 2f < 0;
     }
 }

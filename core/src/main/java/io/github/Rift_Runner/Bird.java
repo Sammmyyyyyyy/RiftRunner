@@ -1,7 +1,8 @@
 
 package io.github.Rift_Runner;
 
-import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
+import com.badlogic.gdx.graphics.Texture;
+import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 
 public class Bird {
 
@@ -10,15 +11,22 @@ public class Bird {
 
     private float velocityY;
 
-    public static final float SIZE = 30f;
+    public static final float WIDTH = 60f;
+    public static final float HEIGHT = 40f;
 
     private static final float GRAVITY = -1000f;
     private static final float FLAP_STRENGTH = 400f;
 
-    public Bird(float x, float y) {
+    private final Texture aliveTexture;
+    private final Texture deadTexture;
+    private boolean dead;
+
+    public Bird(float x, float y, Texture aliveTexture, Texture deadTexture) {
         this.x = x;
         this.y = y;
         this.velocityY = 0f;
+        this.aliveTexture = aliveTexture;
+        this.deadTexture = deadTexture;
     }
 
     public void flap() {
@@ -31,14 +39,12 @@ public class Bird {
         y += velocityY * delta;
     }
 
-    public void render(ShapeRenderer shapeRenderer) {
-        shapeRenderer.setColor(0f, 1f, 0f, 1f);
+    public void render(SpriteBatch batch) {
+        batch.draw(dead ? deadTexture : aliveTexture, x, y, WIDTH, HEIGHT);
+    }
 
-        shapeRenderer.circle(
-            x + SIZE / 2f,
-            y + SIZE / 2f,
-            SIZE / 2f
-        );
+    public void setDead(boolean dead) {
+        this.dead = dead;
     }
 
     public float getX() {

@@ -1,7 +1,8 @@
 
 package io.github.Rift_Runner;
 
-import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
+import com.badlogic.gdx.graphics.g2d.SpriteBatch;
+import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import java.util.Random;
 
 public class Pole {
@@ -41,46 +42,82 @@ public class Pole {
         x -= speed * delta;
     }
 
-    public void render(ShapeRenderer shapeRenderer , float groundHeight) {
+    public void render(SpriteBatch batch, TextureRegion bottomPole,
+                       TextureRegion topPole, float groundHeight) {
 
         float gapBottom = gapY - GAP / 2f;
         float gapTop = gapY + GAP / 2f;
+        float bottomHeight = Math.min(gapBottom - groundHeight,
+            bottomPole.getRegionHeight() * WIDTH / bottomPole.getRegionWidth());
+        float bottomSourceHeight = bottomHeight * bottomPole.getRegionWidth() / WIDTH;
+        batch.draw(bottomPole.getTexture(), x, groundHeight, WIDTH, bottomHeight,
+            bottomPole.getRegionX(), bottomPole.getRegionY(),
+            bottomPole.getRegionWidth(), (int) bottomSourceHeight, false, false);
 
-        shapeRenderer.setColor(0f, 1f, 0f, 1f);
-
-        shapeRenderer.rect(
-            x,
-            groundHeight,
-            WIDTH,
-            gapBottom
-        );
-
-        shapeRenderer.rect(
-            x,
-            gapTop,
-            WIDTH,
-            worldHeight - gapTop
-        );
+        float topHeight = Math.min(worldHeight - gapTop,
+            topPole.getRegionHeight() * WIDTH / topPole.getRegionWidth());
+        float topSourceHeight = topHeight * topPole.getRegionWidth() / WIDTH;
+        int topSourceY = topPole.getRegionY() + topPole.getRegionHeight()
+            - (int) topSourceHeight;
+        batch.draw(topPole.getTexture(), x, gapTop, WIDTH, topHeight,
+            topPole.getRegionX(), topSourceY,
+            topPole.getRegionWidth(), (int) topSourceHeight, false, false);
     }
 
-    public boolean collides(Bird bird , float groundHeight) {
+    public boolean collides(Bird bird, float groundHeight,
+                            SpriteMask birdMask, SpriteMask bottomPoleMask,
+                            SpriteMask topPoleMask,
+                            TextureRegion bottomPole, TextureRegion topPole) {
+        float gapBottom = gapY - GAP / 2f;
+        float gapTop = gapY + GAP / 2f;
+        float bottomHeight = Math.min(gapBottom - groundHeight,
+            bottomPole.getRegionHeight() * WIDTH / bottomPole.getRegionWidth());
+        float topHeight = Math.min(worldHeight - gapTop,
+            topPole.getRegionHeight() * WIDTH / topPole.getRegionWidth());
+        int bottomSourceHeight = (int) (bottomHeight * bottomPole.getRegionWidth() / WIDTH);
+        int topSourceHeight = (int) (topHeight * topPole.getRegionWidth() / WIDTH);
+        int topSourceY = topPole.getRegionY() + topPole.getRegionHeight() - topSourceHeight;
 
-        float birdLeft = bird.getX();
-        float birdRight = bird.getX() + Bird.SIZE;
-        float birdBottom = bird.getY();
-        float birdTop = bird.getY() + Bird.SIZE;
+        // Check opaque points from the bird image against the rendered pole pixels.
+        final int samplesPerUnit = 2;
+        for (int py = 0; py < Bird.HEIGHT * samplesPerUnit; py++) {
+            float worldY = bird.getY() + (py + 0.5f) / samplesPerUnit;
+            float birdV = 1f - (worldY - bird.getY()) / Bird.HEIGHT;
 
-        float poleLeft = x;
-        float poleRight = x + WIDTH;
+            for (int px = 0; px < Bird.WIDTH * samplesPerUnit; px++) {
+                float worldX = bird.getX() + (px + 0.5f) / samplesPerUnit;
+                float birdU = (worldX - bird.getX()) / Bird.WIDTH;
+                if (!birdMask.isOpaque(birdU, birdV)
+                    || worldX < x || worldX > x + WIDTH) {
+                    continue;
+                }
 
-        if (birdRight <= poleLeft || birdLeft >= poleRight) {
-            return false;
+                float poleU = (worldX - x) / WIDTH;
+                if (worldY >= groundHeight && worldY <= groundHeight + bottomHeight) {
+                    float sourceV = 1f - (worldY - groundHeight) / bottomHeight;
+                    float sourceX = bottomPole.getRegionX() + poleU * bottomPole.getRegionWidth();
+                    float sourceY = bottomPole.getRegionY() + sourceV * bottomSourceHeight;
+                    if (bottomPoleMask.isOpaque(
+                        sourceX / bottomPole.getTexture().getWidth(),
+                        sourceY / bottomPole.getTexture().getHeight())) {
+                        return true;
+                    }
+                }
+
+                if (worldY >= gapTop && worldY <= gapTop + topHeight) {
+                    float sourceV = 1f - (worldY - gapTop) / topHeight;
+                    float sourceX = topPole.getRegionX() + poleU * topPole.getRegionWidth();
+                    float sourceY = topSourceY + sourceV * topSourceHeight;
+                    if (topPoleMask.isOpaque(
+                        sourceX / topPole.getTexture().getWidth(),
+                        sourceY / topPole.getTexture().getHeight())) {
+                        return true;
+                    }
+                }
+            }
         }
 
-        float gapBottom = groundHeight + gapY - GAP / 2f;
-        float gapTop = gapY + GAP / 2f;
-
-        return birdBottom < gapBottom || birdTop > gapTop;
+        return false;
     }
 
     public boolean isOffScreen() {
