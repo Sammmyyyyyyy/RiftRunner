@@ -11,7 +11,15 @@ import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.Preferences;
+
+import java.util.Random;
+
 public class RiftRunner extends ApplicationAdapter {
+
+    //For creating Sparks
+
+    private Array<Spark> sparks = new Array<>();
+    private Random random = new Random();
 
     private OrthographicCamera camera;
     private ShapeRenderer shapeRenderer;
@@ -168,10 +176,12 @@ public class RiftRunner extends ApplicationAdapter {
 
             gameState = GameState.PLAYING;
             bird.flap();
+            spawnThrustSparks();
 
         } else if (gameState == GameState.PLAYING) {
 
             bird.flap();
+            spawnThrustSparks();
 
         } else if (gameState == GameState.GAME_OVER) {
             saveHighScore();
@@ -180,6 +190,18 @@ public class RiftRunner extends ApplicationAdapter {
     }
 
     private void updateGame(float delta) {
+
+        //sparks update after every frame
+
+        for (int i = sparks.size - 1; i >= 0; i--) {
+            Spark spark = sparks.get(i);
+
+            spark.update(delta);
+
+            if (spark.isDead()) {
+                sparks.removeIndex(i);
+            }
+        }
 
         float worldWidth = camera.viewportWidth;
         float worldHeight = camera.viewportHeight;
@@ -310,6 +332,12 @@ public class RiftRunner extends ApplicationAdapter {
         batch.end();
 
         shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+
+        //draw sparks on screen
+
+        for (Spark spark : sparks) {
+            spark.render(shapeRenderer);
+        }
 
         shapeRenderer.setColor(0f, 1f, 0f, 1f);
 
@@ -448,6 +476,27 @@ public class RiftRunner extends ApplicationAdapter {
         }
 
         return worldWidth + currentPoleSpacing / 2f;
+    }
+
+    // generates sparks at the time of thrust
+
+    private void spawnThrustSparks() {
+        float x = bird.getX() + Bird.SIZE * 0.30f;
+        float y = bird.getY() + Bird.SIZE * 0.30f;
+
+        for (int i = 0; i < 8; i++) {
+
+            // Sparks move towards south-west
+            float vx = -80f - random.nextFloat() * 100f;
+            float vy = -80f - random.nextFloat() * 100f;
+
+            float life = 0.2f + random.nextFloat() * 0.25f;
+            float size = 2f + random.nextFloat() * 3f;
+
+            sparks.add(new Spark(
+                x, y, vx, vy, life, size
+            ));
+        }
     }
 
     @Override
