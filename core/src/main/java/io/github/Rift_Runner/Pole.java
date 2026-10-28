@@ -51,7 +51,7 @@ public class Pole {
         );
     }
 
-    public boolean collides(Bird bird) {
+    public boolean collides(Bird bird , float groundHeight) {
 
         float birdLeft = bird.getX();
         float birdRight = bird.getX() + Bird.SIZE;
@@ -65,7 +65,7 @@ public class Pole {
             return false;
         }
 
-        float gapBottom = gapY - GAP / 2f;
+        float gapBottom = groundHeight+ gapY - GAP / 2f;
         float gapTop = gapY + GAP / 2f;
 
         return birdBottom < gapBottom || birdTop > gapTop;

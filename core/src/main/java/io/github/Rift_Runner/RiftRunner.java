@@ -4,19 +4,24 @@ package io.github.Rift_Runner;
 import com.badlogic.gdx.ApplicationAdapter;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
-import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.graphics.Texture;
+import com.badlogic.gdx.Preferences;
 public class RiftRunner extends ApplicationAdapter {
 
     private OrthographicCamera camera;
     private ShapeRenderer shapeRenderer;
     private SpriteBatch batch;
     private BitmapFont font;
+
+    // for saving high score
+
+    private Preferences preferences;
+    private int highScore;
 
     private Bird bird;
     private Array<Pole> poles;
@@ -37,8 +42,17 @@ public class RiftRunner extends ApplicationAdapter {
     private static final float POLE_SPAWN_INTERVAL = 1.6f;
     private static final float GROUND_HEIGHT = 0;
 
+    private static final float groundHeight = 40f;
     @Override
     public void create() {
+
+        //extracting prefences stored in C drive of RiftRunner
+
+        preferences = Gdx.app.getPreferences("RiftRunner");
+
+        //taking previous highest score or defualt 0
+
+        highScore = preferences.getInteger("highScore", 0);
 
         background = new Texture(
             Gdx.files.internal("flappy.jpg")
@@ -119,7 +133,7 @@ public class RiftRunner extends ApplicationAdapter {
             bird.flap();
 
         } else if (gameState == GameState.GAME_OVER) {
-
+            saveHighScore();
             restartGame();
         }
     }
@@ -135,6 +149,7 @@ public class RiftRunner extends ApplicationAdapter {
             || bird.getY() + Bird.SIZE >= worldHeight) {
 
             gameState = GameState.GAME_OVER;
+            saveHighScore();
             return;
         }
 
@@ -151,8 +166,9 @@ public class RiftRunner extends ApplicationAdapter {
 
             pole.update(delta, POLE_SPEED);
 
-            if (pole.collides(bird)) {
+            if (pole.collides(bird ,groundHeight)) {
                 gameState = GameState.GAME_OVER;
+                saveHighScore();
                 return;
             }
 
@@ -173,23 +189,11 @@ public class RiftRunner extends ApplicationAdapter {
 
     private void renderGame() {
 
-        // Clear the screen
-        Gdx.gl.glClearColor(
-            0.05f,
-            0.05f,
-            0.12f,
-            1f
-        );
-
-        Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
-
-        // Set camera projection
         camera.update();
 
         shapeRenderer.setProjectionMatrix(camera.combined);
         batch.setProjectionMatrix(camera.combined);
 
-// Draw background first
         batch.begin();
 
         batch.draw(
@@ -202,10 +206,8 @@ public class RiftRunner extends ApplicationAdapter {
 
         batch.end();
 
-// Draw ground, poles and bird over the background
         shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
 
-        // Ground
         shapeRenderer.setColor(0f, 1f, 0f, 1f);
 
         shapeRenderer.rect(
@@ -215,19 +217,25 @@ public class RiftRunner extends ApplicationAdapter {
             GROUND_HEIGHT
         );
 
-        // Draw all poles
         for (Pole pole : poles) {
-            float heightFromBottom = 40f;
-            pole.render(shapeRenderer , heightFromBottom);
+
+            pole.render(shapeRenderer , groundHeight);
         }
 
-        // Draw bird
         bird.render(shapeRenderer);
 
         shapeRenderer.end();
 
-        // Draw text
         batch.begin();
+
+        font.getData().setScale(1.5f);
+
+        font.draw(
+            batch,
+            "High Score: " + highScore,
+            20f,
+            camera.viewportHeight - 60f
+        );
 
         font.getData().setScale(2f);
 
@@ -266,6 +274,22 @@ public class RiftRunner extends ApplicationAdapter {
         }
 
         batch.end();
+    }
+
+    //helper method for saving high score
+
+    private void saveHighScore() {
+
+        if (score > highScore) {
+
+            highScore = score;
+
+            preferences.putInteger("highScore", highScore);
+
+            //for writing into persistent memory
+
+            preferences.flush();
+        }
     }
 
     @Override
