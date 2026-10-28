@@ -38,9 +38,19 @@ public class RiftRunner extends ApplicationAdapter {
     private float poleTimer;
     private int score;
 
-    private float POLE_SPEED = 220f;
-    private static final float POLE_SPAWN_INTERVAL = 1.6f;
-    private static final float GROUND_HEIGHT = 0;
+    private float BASE_POLE_SPEED = 220f;
+    private float MAX_POLE_SPEED = 350f;
+
+    private static final float NORMAL_POLE_SPAWN_INTERVAL = 1.6f;
+    private static final float CLOSE_POLE_SPAWN_INTERVAL = 1.35f;
+
+    private float poleSpeed;
+    private float currentGap;
+    private float positionVariation;
+    private float currentSpawnInterval;
+
+    private static final float BASE_GAP = 190f;
+    private static final float MIN_GAP = 145f;
 
     private static final float groundHeight = 40f;
     @Override
@@ -87,10 +97,17 @@ public class RiftRunner extends ApplicationAdapter {
         poles = new Array<>();
 
         // First pole starts outside the right edge
-        poles.add(new Pole(worldWidth + 100f, worldHeight));
+        poles.add(new Pole(
+            worldWidth + 100f,
+            worldHeight,
+            currentGap,
+            positionVariation,
+            groundHeight
+        ));
 
         poleTimer = 0f;
         score = 0;
+        updateDifficulty();
 
         gameState = GameState.READY;
     }
@@ -142,10 +159,11 @@ public class RiftRunner extends ApplicationAdapter {
 
         float worldWidth = camera.viewportWidth;
         float worldHeight = camera.viewportHeight;
+        updateDifficulty();
 
         bird.update(delta);
 
-        if (bird.getY() <= GROUND_HEIGHT
+        if (bird.getY() <= groundHeight
             || bird.getY() + Bird.SIZE >= worldHeight) {
 
             gameState = GameState.GAME_OVER;
@@ -155,16 +173,20 @@ public class RiftRunner extends ApplicationAdapter {
 
         poleTimer += delta;
 
-        if (poleTimer >= POLE_SPAWN_INTERVAL) {
+        if (poleTimer >= currentSpawnInterval) {
+            poles.add(new Pole(
+                worldWidth,
+                worldHeight,
+                currentGap,
+                positionVariation,
+                groundHeight
+            ));
 
-            poles.add(new Pole(worldWidth, worldHeight));
-
-            poleTimer = 0f;
+            poleTimer -= currentSpawnInterval;
         }
-
         for (Pole pole : poles) {
 
-            pole.update(delta, POLE_SPEED);
+            pole.update(delta, poleSpeed);
 
             if (pole.collides(bird ,groundHeight)) {
                 gameState = GameState.GAME_OVER;
@@ -214,7 +236,7 @@ public class RiftRunner extends ApplicationAdapter {
             0,
             0,
             camera.viewportWidth,
-            GROUND_HEIGHT
+            groundHeight
         );
 
         for (Pole pole : poles) {
@@ -292,6 +314,38 @@ public class RiftRunner extends ApplicationAdapter {
         }
     }
 
+    private void updateDifficulty() {
+        if (score <= 5) {
+            poleSpeed = 220f;
+            currentGap = 190f;
+            positionVariation = 80f;
+            currentSpawnInterval = 1.6f;
+
+        } else if (score <= 10) {
+            poleSpeed = 260f;
+            currentGap = 175f;
+            positionVariation = 100f;
+            currentSpawnInterval = 1.45f;
+
+        } else if (score <= 15) {
+            poleSpeed = 300f;
+            currentGap = 160f;
+            positionVariation = 120f;
+            currentSpawnInterval = 1.30f;
+
+        } else if (score <= 20) {
+            poleSpeed = 330f;
+            currentGap = 145f;
+            positionVariation = 150f;
+            currentSpawnInterval = 1.15f;
+
+        } else {
+            poleSpeed = 380f;
+            currentGap = 130f;
+            positionVariation = 180f;
+            currentSpawnInterval = 1f;
+        }
+    }
     @Override
     public void dispose() {
 

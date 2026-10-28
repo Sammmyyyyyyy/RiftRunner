@@ -10,7 +10,8 @@ public class Pole {
     public float gapY;
 
     public static final float WIDTH = 65f;
-    public static final float GAP = 190f;
+    public float GAP;
+    public static float groundHeight;
 
     private final float worldHeight;
 
@@ -18,12 +19,23 @@ public class Pole {
 
     private static final Random RANDOM = new Random();
 
-    public Pole(float x, float worldHeight) {
-        this.x = x;
-        this.worldHeight = worldHeight;
-        this.gapY = worldHeight * 0.35f
-            + RANDOM.nextFloat() * worldHeight * 0.30f;
-    }
+    public Pole(float x, float worldHeight, float gapSize,
+        float positionVariation, float groundHeight) {
+
+            this.x = x;
+            this.worldHeight = worldHeight;
+            this.GAP = gapSize;
+            this.groundHeight = groundHeight;
+
+            float minGapY = groundHeight + gapSize / 2f + 20f;
+            float maxGapY = worldHeight - gapSize / 2f - 20f;
+
+            minGapY = Math.max(minGapY, worldHeight * 0.35f - positionVariation);
+            maxGapY = Math.min(maxGapY, worldHeight * 0.65f + positionVariation);
+
+            this.gapY = minGapY
+                + RANDOM.nextFloat() * (maxGapY - minGapY);
+        }
 
     public void update(float delta, float speed) {
         x -= speed * delta;
@@ -65,7 +77,7 @@ public class Pole {
             return false;
         }
 
-        float gapBottom = groundHeight+ gapY - GAP / 2f;
+        float gapBottom = groundHeight + gapY - GAP / 2f;
         float gapTop = gapY + GAP / 2f;
 
         return birdBottom < gapBottom || birdTop > gapTop;
